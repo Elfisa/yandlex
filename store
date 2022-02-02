@@ -1,0 +1,207 @@
+import pygame
+import sqlite3
+from my_functions import load_image, game_font, terminate
+from constants2 import *
+
+pygame.init()
+
+
+class StoreScreen:
+    def __init__(self, user_id):
+        self.user_id = user_id
+        self.cn = sqlite3.connect(DB)
+        self.backgrs = self.cn.cursor().execute(f"SELECT asia, forest, green_street, house, idk, leaves, mountain, "
+                                                f"sky, night_forest, night_water, river, romantic_forest, street, "
+                                                f"sunset, sunrise FROM results WHERE id={self.user_id}").fetchall()
+        # список типо [True, True, False, True]
+        self.product = [0, 'background']  # номер фона
+        # либо надо сделать список из тех, где True, либо
+        # если not self.backgrs[n], то вообще пофиг на эту ступень, надо вызвать смену номера (перелистывание),
+        # а если там True надо рисовать эту картинку self.backgrounds[n]
+        self.backgrounds = ['asia', 'forest', 'green_street', 'house', 'idk', 'leaves', 'mountain', 'sky',
+                            'night_forest', 'night_water', 'river', 'romantic_forest', 'street', 'sunset', 'sunrise']
+        self.fonts = ['Mistral', 'Chiller', 'Jokerman', 'Harrington']
+        self.sprites = self.current_sprite = None
+        self.coin_img = load_image('lil_coins.png', -1)
+        self.n_is_changed = self.additional_btns = False
+        self.balance = 100  # ЗНАЧЕНИЕ ИЗ БАЗЫ ДАННЫХ
+
+    def render(self, screen):
+        if not self.sprites:  # выполняется один раз
+            self.create_coin_sprites((40, 43), WIDTH - WIDTH * 0.08, HEIGHT * 0.03)
+            self.create_coin_sprites((70, 75), WIDTH // 2 + WIDTH // 30, HEIGHT * 0.86)
+        if self.n_is_changed or not self.current_sprite:  # выполняется в самом начале или когда перелистывают страницу
+            if self.product[1] == 'background':
+                self.create_background_sprite()
+            else:
+                if self.current_sprite:  # на случай, если фоны все куплены
+                    self.current_sprite.kill()
+                text = game_font(140, self.fonts[self.product[0]]).render(self.fonts[self.product[0]],
+                                                                          True, (186, 172, 199))
+                x, y = WIDTH // 2 - text.get_width() // 2,  HEIGHT // 2 - text.get_height() // 2
+                screen.blit(text, (x, y))
+        self.sprites.draw(screen)
+        self.draw_btns(screen)
+        self.add_text(screen)
+        if self.additional_btns:  # выполняется только когда есть доп. окно
+            pygame.draw.rect(screen, (186, 172, 199), (WIDTH * 0.2, HEIGHT * 0.35, WIDTH * 0.6, HEIGHT * 0.3))
+            pygame.draw.rect(screen, (61, 40, 89), (WIDTH * 0.2, HEIGHT * 0.35, WIDTH * 0.6, HEIGHT * 0.3), 3)
+            text = game_font(70, 'Mistral').render('Купить?',  True, (61, 40, 89))
+            x, y = WIDTH // 2 - text.get_width() // 2, HEIGHT // 2 - text.get_height() // 2
+            screen.blit(text, (x, y - 20))
+            pygame.draw.rect(screen, (61, 40, 89), (WIDTH * 0.3, HEIGHT * 0.55, WIDTH * 0.15, HEIGHT * 0.08), 3)
+            pygame.draw.rect(screen, (61, 40, 89), (WIDTH * 0.55, HEIGHT * 0.55, WIDTH * 0.15, HEIGHT * 0.08), 3)
+            screen.blit(game_font(35, 'Mistral').render('Ой, нет',  True, (61, 40, 89)), (x - 30, y + HEIGHT * 0.11))
+            screen.blit(game_font(35, 'Mistral').render('Да!!',  True, (61, 40, 89)), (x + 170, y + HEIGHT * 0.11))
+
+    def create_coin_sprites(self, img_size, x, y):
+        if not self.sprites:
+            self.sprites = pygame.sprite.Group()
+        coin_sprite = pygame.sprite.Sprite()
+        coin_sprite.image = pygame.transform.scale(self.coin_img, img_size)
+        coin_sprite.rect = coin_sprite.image.get_rect()
+        coin_sprite.rect.x, coin_sprite.rect.y = x, y
+        self.sprites.add(coin_sprite)
+
+    def create_background_sprite(self):
+        if self.current_sprite:
+            self.current_sprite.kill()
+        self.current_sprite = pygame.sprite.Sprite()
+        img = load_image(f'{self.backgrounds[self.product[0]]}.jpg')
+        self.current_sprite.image = pygame.transform.scale(img, (SIDE * 0.7, SIDE * 0.7))
+        self.current_sprite.rect = self.current_sprite.image.get_rect()
+        self.current_sprite.rect.x, self.current_sprite.rect.y = WIDTH * 0.15, HEIGHT * 0.13
+        self.sprites.add(self.current_sprite)
+
+    def draw_btns(self, screen):
+        pygame.draw.rect(screen, (61, 40, 89), (0, 0, 150, 60))
+        pygame.draw.rect(screen, (186, 172, 199), (0, 0, 150, 60), 2)
+        pygame.draw.rect(screen, (61, 40, 89), (263, 599, 198, 97), 2)
+        if not (self.product[0] == 0 and self.product[1] == 'background'):
+            pygame.draw.rect(screen, (186, 172, 199), (20, HEIGHT - 70, 70, 50))
+            pygame.draw.polygon(screen, (106, 92, 119), ((50, HEIGHT - 65), (30, HEIGHT - 45), (50, HEIGHT - 25),
+                                                         (50, HEIGHT - 35), (80, HEIGHT - 35), (80, HEIGHT - 55),
+                                                         (50, HEIGHT - 55)))
+        if not (self.product[0] == len(self.fonts) - 1 and self.product[1] == 'font'):
+            pygame.draw.rect(screen, (186, 172, 199), (WIDTH - 90, HEIGHT - 70, 70, 50))
+            pygame.draw.polygon(screen, (106, 92, 119), ((WIDTH - 50, HEIGHT - 65), (WIDTH - 30, HEIGHT - 45),
+                                                         (WIDTH - 50, HEIGHT - 25), (WIDTH - 50, HEIGHT - 35),
+                                                         (WIDTH - 80, HEIGHT - 35), (WIDTH - 80, HEIGHT - 55),
+                                                         (WIDTH - 50, HEIGHT - 55)))
+
+    def add_text(self, screen):
+        if self.product[1] == 'background':
+            price = '60' if self.backgrounds[self.product[0]] in ('romantic_forest', 'asia', 'green_street') else '50'
+        else:
+            price = '25' if self.fonts[self.product[0]] in ('Jokerman', 'Harrington') else '20'
+        text = game_font(50, 'Mistral').render('В меню', True, (186, 172, 199))
+        screen.blit(text, (150 // 2 - text.get_width() // 2, 30 - text.get_height() // 2))
+        text = game_font(90, 'Ink Free').render(price, True, (186, 172, 199))
+        x = WIDTH // 1.9 - text.get_width()
+        y = HEIGHT * 0.9
+        screen.blit(text, (x, y - 50))
+        text = game_font(50, 'Ink Free').render(str(self.balance), True, (186, 172, 199))
+        x = WIDTH - WIDTH * 0.08 - text.get_width() - 5
+        y = HEIGHT * 0.03
+        screen.blit(text, (x, y - 10))
+
+    def get_click(self, mouse_pos, screen):
+        btn = self.get_btn(mouse_pos)
+        if btn == 'exit':
+            return True
+        elif btn:
+            self.on_click(btn, screen)
+        return False
+
+    def get_btn(self, mouse_pos):
+        if self.additional_btns:
+            if HEIGHT * 0.55 <= mouse_pos[1] <= HEIGHT * 0.55 + HEIGHT * 0.08:
+                if WIDTH * 0.3 <= mouse_pos[0] <= WIDTH * 0.3 + WIDTH * 0.15:
+                    return 'no'
+                if WIDTH * 0.55 <= mouse_pos[0] <= WIDTH * 0.55 + WIDTH * 0.15:
+                    return 'yes'
+        else:
+            if 0 <= mouse_pos[0] <= 150 and 0 <= mouse_pos[1] <= 60:
+                return 'exit'
+            if 263 <= mouse_pos[0] <= 263 + 198 and 599 <= mouse_pos[1] <= 599 + 97:
+                return 'buy'
+            if HEIGHT - 70 <= mouse_pos[1] <= HEIGHT - 70 + 50:
+                if 20 <= mouse_pos[0] <= 20 + 70 and not (self.product[0] == 0 and self.product[1] == 'background'):
+                    return 'left'
+                if WIDTH - 90 <= mouse_pos[0] <= WIDTH - 90 + 70 and \
+                        not (self.product[0] == len(self.fonts) - 1 and self.product[1] == 'font'):
+                    return 'right'
+        return None
+
+    def on_click(self, btn, screen):
+        if btn == 'buy':
+            if self.product[1] == 'background':
+                n = 60 if self.backgrounds[self.product[0]] in ('romantic_forest', 'asia', 'green_street') else 50
+            else:
+                n = 25 if self.fonts[self.product[0]] in ('Jokerman', 'Harrington') else 20
+            if self.balance - n >= 0:
+                self.additional_btns = True
+            else:
+                pygame.draw.rect(screen, 'red', (263, 599, 198, 97))
+        elif self.additional_btns:
+            self.additional_btns = False
+            if btn == 'yes':                      # БАЗА ДАННЫХ
+                if self.product[1] == 'background':
+                    n = 60 if self.backgrounds[self.product[0]] in ('romantic_forest', 'asia', 'green_street') else 50
+                    self.balance -= n
+                    self.current_sprite.kill()
+                    self.backgrounds.pop(self.product[0])
+                else:
+                    self.balance -= 25
+                    self.fonts.pop(self.product[0])
+                if self.product[0] == len(self.fonts) - 1 and self.product[1] == 'font':
+                    print('a')
+                    self.n_changing('left')
+                    self.n_changing('left')
+                else:
+                    self.n_changing('right')
+        else:
+            self.n_changing(btn)
+
+    def n_changing(self, btn):
+        self.n_is_changed = True
+        if btn == 'left':
+            if self.product[0] == 0 and self.product[1] == 'font':
+                self.product[0], self.product[1] = len(self.backgrounds) - 1, 'background'
+            else:
+                self.product[0] -= 1
+        else:
+            if self.product[0] == len(self.backgrounds) - 1 and self.product[1] == 'background':
+                self.product[0], self.product[1] = 0, 'font'
+            else:
+                self.product[0] += 1
+
+
+def store():
+    screen = pygame.display.set_mode(SIZE)
+    pygame.display.set_caption('Добро пожаловать в магазинчик!)')
+    store_screen = StoreScreen()
+    chosen_btn = None
+    return_to_menu = False
+    while True:
+        fon = pygame.transform.scale(load_image('space.jpg'), (WIDTH, HEIGHT))
+        screen.blit(fon, (0, 0))
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                terminate()
+            if event.type == pygame.MOUSEBUTTONDOWN:
+                return_to_menu = store_screen.get_click(event.pos, screen)
+                if return_to_menu:
+                    return
+            if event.type == pygame.MOUSEMOTION and not store_screen.additional_btns:
+                chosen_btn = store_screen.get_btn(event.pos)
+        store_screen.render(screen)
+        if chosen_btn == 'buy':
+            pygame.draw.rect(screen, (201, 180, 255), (263, 599, 198, 97), 2)
+        elif chosen_btn == 'exit':
+            pygame.draw.rect(screen, (61, 40, 129), (0, 0, 150, 60), 2)
+        pygame.display.flip()
+
+
+if __name__ == '__main__':
+    store()
