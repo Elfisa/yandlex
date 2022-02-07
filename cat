@@ -1,8 +1,12 @@
 import sys
 
-file = sys.argv[-1]
+filename = sys.argv[-1]
+with open('text1.txt') as file:
+    lines = [n[:-2] for n in file.readlines()]
+    print(lines)
 if len(sys.argv) > 2:
     args = sys.argv[1:-1]
-with open('text1.txt') as file:
-    lines = file.readlines()
-    print(lines)
+    for arg in args:
+        if arg == '--count':
+            lenn = len(lines)
+           
