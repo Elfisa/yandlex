@@ -1,0 +1,9 @@
+
+
+pip install django
+python -m django startpproject nameproejct
+cd nameproejct
+python manage/py startapp mainapp
+
+https://docs.djangoproject.com/en/4.0/ref/models/fields/#imagefield
+
